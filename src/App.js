@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Karte from "./Karte";
+import Login from "./Login";
+import { supabase } from "./supabase";
 
 function App() {
   const [schritt, setSchritt] = useState("start");
@@ -8,10 +10,42 @@ function App() {
     typ: null,
     uebernachtung: null,
   });
+  const [user, setUser] = useState(null);
+  const [laedt, setLaedt] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLaedt(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSchritt("start");
+    setProfil({ hauptmodus: null, typ: null, uebernachtung: null });
+  }
 
   function weiter(feld, wert, naechsterSchritt) {
     setProfil((alt) => ({ ...alt, [feld]: wert }));
     setSchritt(naechsterSchritt);
+  }
+
+  if (laedt) {
+    return (
+      <div style={{ backgroundColor: "#1a1a2e", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontFamily: "Arial, sans-serif" }}>
+        <p>🌍 Vanora lädt...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login onLogin={(u) => setUser(u)} />;
   }
 
   if (schritt === "start") {
@@ -19,6 +53,9 @@ function App() {
       <Screen titel="🌍 Vanora" untertitel="Finde deinen perfekten Schlafplatz">
         <Kachel emoji="🚐" titel="Mit Fahrzeug" sub="Wohnmobil · Kastenwagen · Auto mit Dachzelt" farbe="#1D9E75" bg="#0a2a1e" onClick={() => weiter("hauptmodus", "fahrzeug", "typ")} />
         <Kachel emoji="🎒" titel="Ohne Fahrzeug" sub="Wanderer · Backpacker · Zelt & Biwak" farbe="#5B8CDB" bg="#0a1a2e" onClick={() => weiter("hauptmodus", "ohnefahrzeug", "typ")} />
+        <button onClick={handleLogout} style={{ ...zurueckStyle, color: "#ff6b6b", borderColor: "#ff6b6b", width: "100%", maxWidth: "400px" }}>
+          Logout
+        </button>
       </Screen>
     );
   }
@@ -109,8 +146,12 @@ function App() {
         <div style={{ width: "100%", backgroundColor: "#16213e", padding: "12px 16px", display: "flex", alignItems: "center", gap: "12px", borderBottom: "1px solid #2a2a4a" }}>
           <button onClick={() => setSchritt("profil")} style={{ ...zurueckStyle, padding: "6px 12px" }}>←</button>
           <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>🗺️ Vanora</span>
-          <span style={{ fontSize: "0.8rem", color: "#606080", marginLeft: "auto" }}>{profil.typ} · {profil.uebernachtung}</span>
-          <button onClick={() => { setSchritt("start"); setProfil({ hauptmodus: null, typ: null, uebernachtung: null }); }} style={{ ...zurueckStyle, padding: "6px 12px", fontSize: "0.75rem" }}>↺</button>
+          <span style={{ fontSize: "0.8rem", color: "#606080", marginLeft: "auto" }}>
+            {user.email.split("@")[0]}
+          </span>
+          <button onClick={handleLogout} style={{ ...zurueckStyle, padding: "6px 12px", fontSize: "0.75rem", color: "#ff6b6b", borderColor: "#ff6b6b" }}>
+            Logout
+          </button>
         </div>
         <div style={{ width: "100%", flex: 1, minHeight: "calc(100vh - 60px)" }}>
           <Karte profil={profil} />
