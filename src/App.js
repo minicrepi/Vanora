@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Karte from "./Karte";
 import Login from "./Login";
+import Fahrzeuge from "./Fahrzeuge";
 import { supabase } from "./supabase";
 
 function App() {
@@ -48,11 +49,32 @@ function App() {
     return <Login onLogin={(u) => setUser(u)} />;
   }
 
+  // FAHRZEUG-AUSWAHL aus Datenbank
+  if (schritt === "fahrzeuge") {
+    return (
+      <Fahrzeuge
+        user={user}
+        onAuswaehlen={(fahrzeug) => {
+          setProfil((alt) => ({
+            ...alt,
+            typ: fahrzeug.typ,
+            laenge: String(fahrzeug.laenge),
+            hoehe: String(fahrzeug.hoehe),
+            gewicht: String(fahrzeug.gewicht || ""),
+          }));
+          setSchritt("uebernachtung");
+        }}
+      />
+    );
+  }
+
   if (schritt === "start") {
     return (
       <Screen titel="🌍 Vanora" untertitel="Finde deinen perfekten Schlafplatz">
-        <Kachel emoji="🚐" titel="Mit Fahrzeug" sub="Wohnmobil · Kastenwagen · Auto mit Dachzelt" farbe="#1D9E75" bg="#0a2a1e" onClick={() => weiter("hauptmodus", "fahrzeug", "typ")} />
-        <Kachel emoji="🎒" titel="Ohne Fahrzeug" sub="Wanderer · Backpacker · Zelt & Biwak" farbe="#5B8CDB" bg="#0a1a2e" onClick={() => weiter("hauptmodus", "ohnefahrzeug", "typ")} />
+        <Kachel emoji="🚐" titel="Mit Fahrzeug" sub="Wohnmobil · Kastenwagen · Auto mit Dachzelt" farbe="#1D9E75" bg="#0a2a1e"
+          onClick={() => weiter("hauptmodus", "fahrzeug", "fahrzeuge")} />
+        <Kachel emoji="🎒" titel="Ohne Fahrzeug" sub="Wanderer · Backpacker · Zelt & Biwak" farbe="#5B8CDB" bg="#0a1a2e"
+          onClick={() => weiter("hauptmodus", "ohnefahrzeug", "typ")} />
         <button onClick={handleLogout} style={{ ...zurueckStyle, color: "#ff6b6b", borderColor: "#ff6b6b", width: "100%", maxWidth: "400px" }}>
           Logout
         </button>
@@ -61,19 +83,13 @@ function App() {
   }
 
   if (schritt === "typ") {
-    const optionen = profil.hauptmodus === "fahrzeug"
-      ? [
-          { id: "wohnmobil",     emoji: "🚐", label: "Wohnmobil / Campervan" },
-          { id: "kastenwagen",   emoji: "🚚", label: "Kastenwagen / Transporter" },
-          { id: "auto_dachzelt", emoji: "🚗", label: "Auto mit Dachzelt" },
-        ]
-      : [
-          { id: "wanderer",   emoji: "🥾", label: "Wanderer / Trekking" },
-          { id: "backpacker", emoji: "🎒", label: "Backpacker" },
-          { id: "zelt",       emoji: "⛺", label: "Zelt & Biwak" },
-        ];
+    const optionen = [
+      { id: "wanderer",   emoji: "🥾", label: "Wanderer / Trekking" },
+      { id: "backpacker", emoji: "🎒", label: "Backpacker" },
+      { id: "zelt",       emoji: "⛺", label: "Zelt & Biwak" },
+    ];
     return (
-      <Screen zurueck={() => setSchritt("start")} breadcrumb={profil.hauptmodus === "fahrzeug" ? "Mit Fahrzeug" : "Ohne Fahrzeug"} titel="Was passt zu dir?">
+      <Screen zurueck={() => setSchritt("start")} breadcrumb="Ohne Fahrzeug" titel="Wie bist du unterwegs?">
         {optionen.map((o) => (
           <Zeile key={o.id} emoji={o.emoji} label={o.label} onClick={() => weiter("typ", o.id, "uebernachtung")} />
         ))}
@@ -95,47 +111,12 @@ function App() {
       { id: "hostel",     emoji: "🛏️", label: "Hostel / Günstige Unterkunft", sub: "Für Stadtaufenthalte" },
     ];
     const optionen = profil.hauptmodus === "fahrzeug" ? fahrzeugOptionen : naturOptionen;
-    const typLabel = { wohnmobil: "Wohnmobil", kastenwagen: "Kastenwagen", auto_dachzelt: "Auto mit Dachzelt", wanderer: "Wanderer", backpacker: "Backpacker", zelt: "Zelt & Biwak" }[profil.typ];
+    const zurueckSchritt = profil.hauptmodus === "fahrzeug" ? "fahrzeuge" : "typ";
     return (
-      <Screen zurueck={() => setSchritt("typ")} breadcrumb={typLabel} titel="Was suchst du?" untertitel="Wähle deinen Übernachtungsstil">
+      <Screen zurueck={() => setSchritt(zurueckSchritt)} titel="Was suchst du?" untertitel="Wähle deinen Übernachtungsstil">
         {optionen.map((o) => (
-          <Zeile key={o.id} emoji={o.emoji} label={o.label} sub={o.sub} onClick={() => weiter("uebernachtung", o.id, "profil")} />
+          <Zeile key={o.id} emoji={o.emoji} label={o.label} sub={o.sub} onClick={() => weiter("uebernachtung", o.id, "karte")} />
         ))}
-      </Screen>
-    );
-  }
-
-  if (schritt === "profil") {
-    const typLabel = { wohnmobil: "🚐 Wohnmobil", kastenwagen: "🚚 Kastenwagen", auto_dachzelt: "🚗 Auto mit Dachzelt", wanderer: "🥾 Wanderer", backpacker: "🎒 Backpacker", zelt: "⛺ Zelt & Biwak" }[profil.typ];
-    const uebernachtungLabel = { wildcampen: "🌿 Wildcampen", stellplatz: "🅿️ Stellplatz", camping: "🏕️ Campingplatz", rastplatz: "⛽ Rastplatz", huette: "🏠 Schutzhütte", hostel: "🛏️ Hostel" }[profil.uebernachtung];
-
-    if (profil.hauptmodus === "fahrzeug") {
-      return (
-        <Screen zurueck={() => setSchritt("uebernachtung")} breadcrumb={typLabel} titel="Dein Fahrzeug" untertitel="Einmalig eingeben — wird gespeichert">
-          <Eingabe label="Länge (in Meter)" placeholder="z.B. 6.5" wert={profil.laenge || ""} onChange={(v) => setProfil((a) => ({ ...a, laenge: v }))} />
-          <Eingabe label="Höhe (in Meter)" placeholder="z.B. 2.8" wert={profil.hoehe || ""} onChange={(v) => setProfil((a) => ({ ...a, hoehe: v }))} />
-          <Eingabe label="Gewicht (in kg)" placeholder="z.B. 3500" wert={profil.gewicht || ""} onChange={(v) => setProfil((a) => ({ ...a, gewicht: v }))} />
-          <button
-            onClick={() => setSchritt("karte")}
-            disabled={!profil.laenge || !profil.hoehe || !profil.gewicht}
-            style={{ width: "100%", padding: "13px", backgroundColor: profil.laenge && profil.hoehe && profil.gewicht ? "#1D9E75" : "#2a2a4a", color: "white", border: "none", borderRadius: "10px", fontSize: "1rem", cursor: "pointer", fontWeight: "bold", marginTop: "0.5rem" }}
-          >
-            Weiter zur Karte →
-          </button>
-        </Screen>
-      );
-    }
-
-    return (
-      <Screen zurueck={() => setSchritt("uebernachtung")} breadcrumb={typLabel} titel="Dein Reiseprofil" untertitel="Damit wir passende Spots finden">
-        <Zeile emoji="👤" label="Typ" sub={typLabel} />
-        <Zeile emoji="🌙" label="Übernachtung" sub={uebernachtungLabel} />
-        <button
-          onClick={() => setSchritt("karte")}
-          style={{ width: "100%", padding: "13px", backgroundColor: "#1D9E75", color: "white", border: "none", borderRadius: "10px", fontSize: "1rem", cursor: "pointer", fontWeight: "bold", marginTop: "0.5rem" }}
-        >
-          Weiter zur Karte →
-        </button>
       </Screen>
     );
   }
@@ -144,7 +125,7 @@ function App() {
     return (
       <div style={{ ...containerStyle, padding: 0, justifyContent: "flex-start" }}>
         <div style={{ width: "100%", backgroundColor: "#16213e", padding: "12px 16px", display: "flex", alignItems: "center", gap: "12px", borderBottom: "1px solid #2a2a4a" }}>
-          <button onClick={() => setSchritt("profil")} style={{ ...zurueckStyle, padding: "6px 12px" }}>←</button>
+          <button onClick={() => setSchritt("uebernachtung")} style={{ ...zurueckStyle, padding: "6px 12px" }}>←</button>
           <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>🗺️ Vanora</span>
           <span style={{ fontSize: "0.8rem", color: "#606080", marginLeft: "auto" }}>
             {user.email.split("@")[0]}
@@ -197,17 +178,6 @@ function Zeile({ emoji, label, sub, onClick }) {
         {sub && <p style={{ margin: 0, fontSize: "0.8rem", color: "#606080" }}>{sub}</p>}
       </div>
       {onClick && <span style={{ marginLeft: "auto", color: "#606080" }}>›</span>}
-    </div>
-  );
-}
-
-function Eingabe({ label, placeholder, wert, onChange }) {
-  return (
-    <div>
-      <p style={{ fontSize: "0.82rem", color: "#a0a0c0", margin: "0 0 4px" }}>{label}</p>
-      <input type="number" placeholder={placeholder} value={wert} onChange={(e) => onChange(e.target.value)}
-        style={{ width: "100%", padding: "11px 12px", boxSizing: "border-box", backgroundColor: "#0f3460", color: "white", border: "1px solid #2a2a5a", borderRadius: "10px", fontSize: "1rem", outline: "none" }}
-      />
     </div>
   );
 }
